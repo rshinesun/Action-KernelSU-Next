@@ -2,36 +2,16 @@ name: Build KernelSU Next
 on:
   workflow_dispatch:
     inputs:
-      CPU:
-        description: "分支"
-        required: true
-        default: 'sm8750'
-      FEIL:
-        description: "配置文件"
-        required: true
-        default: 'oneplus_ace5_pro'
-      CPUD:
-        description: "处理器代号"
-        required: true
-        default: 'kaanapali'
-      ANDROID_VERSION:
-        description: "内核安卓版本"
-        required: true
-        default: 'android15'
-      KERNEL_VERSION:
-        description: "内核版本"
-        required: true
-        default: '6.6'
       KSUNEXT_ENABLED:
         description: "添加 KSU Next"
         required: true
         type: boolean
-        default: false
+        default: true
       SUSFS_ENABLED:
         description: "添加 SUSFS"
         required: true
         type: boolean
-        default: false
+        default: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -66,7 +46,7 @@ jobs:
       - name: Initialize repo and sync
         run: |
          mkdir kernel_workspace && cd kernel_workspace
-         repo init -u https://github.com/rshinesun/Action-KernelSU-Next.git -m ${{ github.event.inputs.FEIL }}.xml --depth=1
+         repo init -u https://github.com/rshinesun/OnePlusOSS.git -m oneplus_ace5_pro.xml --depth=1
          repo sync
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
@@ -87,11 +67,11 @@ jobs:
         if: github.event.inputs.SUSFS_ENABLED == 'true'
         run: |
            cd kernel_workspace
-           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
+           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android15-6.6
            git clone https://github.com/TheWildJames/kernel_patches.git
            cd kernel_platform
            cp ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
-           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
+           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android15-6.6.patch ./common/
            cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
            cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
@@ -99,7 +79,7 @@ jobs:
            cd ./KernelSU-Next
            patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
            cd ../common
-           patch -p1 < 50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
+           patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
            cp ../../kernel_patches/69_hide_stuff.patch ./
            patch -p1 -F 3 < 69_hide_stuff.patch
            git add -A && git commit -a -m "BUILD Kernel"
@@ -119,22 +99,22 @@ jobs:
       - name: Build kernel
         run: |
          cd kernel_workspace
-         ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ github.event.inputs.CPUD }} gki
+         ./kernel_platform/oplus/build/oplus_build_kernel.sh kaanapali gki
          
       - name: Make AnyKernel3
         run: |
          git clone https://github.com/Kernel-SU/AnyKernel3 --depth=1
          rm -rf ./AnyKernel3/.git
-         cp kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-gki/dist/Image ./AnyKernel3/
+         cp kernel_workspace/kernel_platform/out/msm-kernel-kaanapali-gki/dist/Image ./AnyKernel3/
 
       - name: Upload AnyKernel3
         uses: actions/upload-artifact@v4
         with:
-         name: AnyKernel3_KernelSU_Next_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
+         name: AnyKernel3_KernelSU_Next_${{ env.KSUVER }}_oneplus_ace5_pro
          path: ./AnyKernel3/*
          
       - name: Upload Image
         uses: actions/upload-artifact@v4
         with:
-         name: Image_KernelSU_Next_${{ env.KSUVER }}_${{ github.event.inputs.FEIL }}
-         path: kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-gki/dist/Image
+         name: Image_KernelSU_Next_${{ env.KSUVER }}_oneplus_ace5_pro
+         path: kernel_workspace/kernel_platform/out/msm-kernel-kaanapali-gki/dist/Image
